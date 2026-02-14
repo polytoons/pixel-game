@@ -255,8 +255,8 @@ export class WaveManager {
           `💰 ${enemy.type} dropped ${goldDropped} gold (Total: ${this.totalGoldEarned})`,
         );
 
-        // Drop item (20% chance)
-        if (Math.random() < 0.1) {
+        // Drop item (30% chance)
+        if (Math.random() < 0.3) {
           const item = this.inventory.generateRandomItem();
           this.inventory.addItem(item);
         }

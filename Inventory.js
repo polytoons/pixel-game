@@ -199,7 +199,7 @@ export class Inventory {
     this.removeItem(item3Id);
 
     // Tạo item mới
-    const newItem = new Item(item1.type, newRarity);
+    const newItem = new Item(item1.type, newRarity, item1.variant);
     this.addItem(newItem);
 
     return newItem;
