@@ -1,6 +1,6 @@
 export class Currency {
     constructor() {
-        this.gold = 500; // Vàng khởi đầu
+        this.gold = 0; // Vàng khởi đầu
     }
 
     add(amount) {

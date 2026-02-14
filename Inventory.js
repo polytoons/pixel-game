@@ -10,7 +10,7 @@ export class Inventory {
       boots: null,
     };
 
-    this.maxSlots = 20;
+    this.maxSlots = 25;
 
     // Tạo một số item ban đầu
     this.generateStarterItems();
@@ -137,22 +137,28 @@ export class Inventory {
 
   generateRandomItem() {
     const types = ["helmet", "armor", "gloves", "boots"];
-    const rarities = [
-      "common",
-      "common",
-      "common",
-      "rare",
-      "rare",
-      "epic",
-      "legendary",
+    const type = types[Math.floor(Math.random() * types.length)];
+
+    const rarityPool = [
+      { rarity: "common", weight: 80 },
+      { rarity: "rare", weight: 15 },
+      { rarity: "epic", weight: 4 },
+      { rarity: "legendary", weight: 1 },
     ];
 
-    const type = types[Math.floor(Math.random() * types.length)];
-    const rarity = rarities[Math.floor(Math.random() * rarities.length)];
+    const total = rarityPool.reduce((sum, e) => sum + e.weight, 0);
+    let rand = Math.random() * total;
+    let rarity = "common";
+    for (const entry of rarityPool) {
+      rand -= entry.weight;
+      if (rand <= 0) {
+        rarity = entry.rarity;
+        break;
+      }
+    }
 
-    // ⭐ Random variant (0, 1, 2)
     const variant = Math.floor(Math.random() * 3);
-    return new Item(type, rarity);
+    return new Item(type, rarity, variant);
   }
 
   // HỆ THỐNG GHÉP ĐỒ MỚI

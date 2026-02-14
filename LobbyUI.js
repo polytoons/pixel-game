@@ -89,7 +89,7 @@ export class LobbyUI {
           { type: "lich", weight: 35 },
           { type: "titan", weight: 30 },
         ],
-        bossWaves: [5, 10, 15, 20, 25],
+        // bossWaves: [5, 10, 15, 20, 25],
       },
     ];
 

@@ -101,6 +101,10 @@ export class Map {
     const startRow = Math.floor(camera.y / this.scaledTileSize);
     const endRow = Math.ceil((camera.y + camera.height) / this.scaledTileSize);
 
+    // ⭐ Tắt antialiasing để pixel art không bị mờ/nhoè
+    const prevSmoothing = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+
     for (
       let row = Math.max(0, startRow);
       row < Math.min(height, endRow);
@@ -113,7 +117,6 @@ export class Map {
       ) {
         const tileIndex = row * width + col;
         const gid = data[tileIndex];
-
         if (gid === 0) continue;
 
         const tilesetInfo = this.getTilesetForGid(gid);
@@ -125,8 +128,13 @@ export class Map {
         const srcX = (localId % tilesetCols) * this.tileSize;
         const srcY = Math.floor(localId / tilesetCols) * this.tileSize;
 
-        const destX = col * this.scaledTileSize - camera.x;
-        const destY = row * this.scaledTileSize - camera.y;
+        // ⭐ Math.floor để loại bỏ số thập phân → không còn khe hở giữa các tile
+        const destX = Math.floor(col * this.scaledTileSize - camera.x);
+        const destY = Math.floor(row * this.scaledTileSize - camera.y);
+
+        // ⭐ +1px để lấp kín khe hở ngay cả khi camera.x/y là số lẻ
+        const drawW = Math.ceil(this.scaledTileSize) + 1;
+        const drawH = Math.ceil(this.scaledTileSize) + 1;
 
         const img = this.images[tilesetInfo.name];
         if (img) {
@@ -138,19 +146,23 @@ export class Map {
             this.tileSize,
             destX,
             destY,
-            this.scaledTileSize,
-            this.scaledTileSize,
+            drawW,
+            drawH,
           );
         }
       }
     }
+
+    ctx.imageSmoothingEnabled = prevSmoothing;
   }
 
   // ⭐ FIXED: Sort objects theo Y position trước khi vẽ
   drawObjectLayer(ctx, layer, camera) {
     // Bỏ qua polygon objects (dùng cho collision)
-    const renderableObjects = layer.objects.filter(obj => !obj.polygon && obj.gid);
-    
+    const renderableObjects = layer.objects.filter(
+      (obj) => !obj.polygon && obj.gid,
+    );
+
     // ⭐ SORT theo Y position (bottom edge) - càng ở dưới càng vẽ sau
     renderableObjects.sort((a, b) => {
       // Tính Y position của BOTTOM edge của object

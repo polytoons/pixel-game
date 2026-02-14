@@ -13,7 +13,7 @@ export class Player {
     // Stats
     this.baseSpeed = 1;
     this.baseMaxHp = 25;
-    this.baseDamage = 150;
+    this.baseDamage = 5;
     this.baseArmor = 0;
 
     this.speed = this.baseSpeed;

@@ -13,6 +13,7 @@ export class WaveManager {
     this.canvasHeight = canvasHeight;
     this.inventory = inventory;
     this.map = map;
+    this.soundManager = null;
     this.levelConfig = levelConfig || {
       id: 1,
       name: "Làng Khởi Đầu",
@@ -33,12 +34,15 @@ export class WaveManager {
     this.delayCounter = 0;
     this.totalEnemiesKilled = 0;
 
-    this.isBossWave = false;
-    this.bossSpawned = false;
+    // this.isBossWave = false;
+    // this.bossSpawned = false;
 
     // ⭐ THÊM: Lưu gold từ frame hiện tại
     this.goldThisFrame = 0;
     this.totalGoldEarned = 0;
+
+    this.maxWaves = 10;
+    this.isCompleted = false;
   }
 
   startNextWave(playerX, playerY) {
@@ -46,16 +50,19 @@ export class WaveManager {
     this.waveActive = true;
     this.delayCounter = 0;
 
-    this.isBossWave =
-      this.levelConfig.bossWaves &&
-      this.levelConfig.bossWaves.includes(this.currentWave);
-    this.bossSpawned = false;
+    // ⭐ Phát âm thanh wave start
+    this.soundManager.playWaveStart();
+    // this.isBossWave =
+    //   this.levelConfig.bossWaves &&
+    //   this.levelConfig.bossWaves.includes(this.currentWave);
+    // this.bossSpawned = false;
 
-    if (this.isBossWave) {
-      this.spawnBossWave(playerX, playerY);
-    } else {
-      this.spawnNormalWave(playerX, playerY);
-    }
+    // if (this.isBossWave) {
+    //   this.spawnBossWave(playerX, playerY);
+    // } else {
+    //   this.spawnNormalWave(playerX, playerY);
+    // }
+    this.spawnNormalWave(playerX, playerY);
   }
 
   spawnNormalWave(playerX, playerY) {
@@ -183,7 +190,9 @@ export class WaveManager {
     return { x, y };
   }
 
-  update(playerX, playerY) {
+  update(playerX, playerY, soundManager = null) {
+    if (soundManager) this.soundManager = soundManager;
+
     // ⭐ Reset gold counter mỗi frame
     this.goldThisFrame = 0;
 
@@ -196,9 +205,9 @@ export class WaveManager {
         enemy.speed *= this.levelConfig.speedMultiplier;
         this.enemies.push(enemy);
 
-        if (enemy.isBoss) {
-          this.bossSpawned = true;
-        }
+        // if (enemy.isBoss) {
+        //   this.bossSpawned = true;
+        // }
 
         return false;
       }
@@ -213,7 +222,11 @@ export class WaveManager {
       this.delayCounter++;
 
       if (this.delayCounter >= this.waveDelay) {
-        this.startNextWave(playerX, playerY);
+        if (this.currentWave >= this.maxWaves) {
+          this.isCompleted = true; // ⭐ Đã qua wave 10 → báo hoàn thành
+        } else {
+          this.startNextWave(playerX, playerY, soundManager);
+        }
       }
     }
 
@@ -238,10 +251,12 @@ export class WaveManager {
         this.goldThisFrame += goldDropped;
         this.totalGoldEarned += goldDropped;
 
-        console.log(`💰 ${enemy.type} dropped ${goldDropped} gold (Total: ${this.totalGoldEarned})`);
+        console.log(
+          `💰 ${enemy.type} dropped ${goldDropped} gold (Total: ${this.totalGoldEarned})`,
+        );
 
         // Drop item (20% chance)
-        if (Math.random() < 0.2) {
+        if (Math.random() < 0.1) {
           const item = this.inventory.generateRandomItem();
           this.inventory.addItem(item);
         }
@@ -258,9 +273,9 @@ export class WaveManager {
     ) {
       this.waveActive = false;
 
-      if (this.isBossWave) {
-        console.log("🎉 Boss defeated!");
-      }
+      // if (this.isBossWave) {
+      //   console.log("🎉 Boss defeated!");
+      // }
     }
 
     return killedCount;
@@ -275,12 +290,12 @@ export class WaveManager {
       enemy.draw(ctx);
     });
 
-    if (
-      this.isBossWave &&
-      (this.enemies.length > 0 || this.pendingSpawns.length > 0)
-    ) {
-      this.drawBossWaveIndicator(ctx);
-    }
+    // if (
+    //   this.isBossWave &&
+    //   (this.enemies.length > 0 || this.pendingSpawns.length > 0)
+    // ) {
+    //   this.drawBossWaveIndicator(ctx);
+    // }
   }
 
   drawBossWaveIndicator(ctx) {
@@ -335,8 +350,8 @@ export class WaveManager {
     const totalEnemies = this.enemies.length + this.pendingSpawns.length;
 
     if (this.waveActive || totalEnemies > 0) {
-      const waveType = this.isBossWave ? "👑 BOSS" : "";
-      return `Đợt ${this.currentWave} ${waveType} - Còn: ${totalEnemies} quái`;
+      // const waveType = this.isBossWave ? "👑 BOSS" : "";
+      return `Đợt ${this.currentWave}/${this.maxWaves} - Còn: ${totalEnemies} quái`;
     } else {
       const timeLeft = Math.ceil((this.waveDelay - this.delayCounter) / 60);
       return `Đợt tiếp theo trong: ${timeLeft}s`;

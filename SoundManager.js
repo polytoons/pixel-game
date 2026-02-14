@@ -28,7 +28,7 @@ export class SoundManager {
       playerHit: "assets/sounds/player_hit.wav",
       uiClick: "assets/sounds/ui_click.wav",
       waveStart: "assets/sounds/wave_start.wav",
-      bossSpawn: "assets/sounds/boss_spawn.mp3",
+      // bossSpawn: "assets/sounds/boss_spawn.mp3",
       gameOver: "assets/sounds/game_over.mp3",
     };
 
@@ -142,7 +142,7 @@ export class SoundManager {
   playPlayerHit() { this.play("playerHit"); }
   playUIClick() { this.play("uiClick"); }
   playWaveStart() { this.play("waveStart"); }
-  playBossSpawn() { this.play("bossSpawn"); }
+  // playBossSpawn() { this.play("bossSpawn"); }
   playGameOver() { this.play("gameOver"); }
 
   // Music control

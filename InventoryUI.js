@@ -18,24 +18,24 @@ export class InventoryUI {
      * Ví dụ: ảnh 16x16 thì slice 5px, ảnh 32x32 thì slice 8-10px
      ───────────────────────────────────────────────── */
     this.bgOuter = {
-      img: this._loadImg("assets/ui/panel_outer_bg.png"),
+      img: this._loadImg("assets/UI/panel_outer_bg.png"),
       sliceSize: 5,
       scale: 4,
     };
     this.bgPanel = {
-      img: this._loadImg("assets/ui/panel_bg.png"),
+      img: this._loadImg("assets/UI/panel_bg.png"),
       sliceSize: 5,
       scale: 6,
     };
     // Button background - dùng chung cho tabs và buttons
     this.bgButton = {
-      img: this._loadImg("assets/ui/button_bg.png"),
+      img: this._loadImg("assets/UI/button_bg.png"),
       sliceSize: 3,
       scale: 3,
     };
     // Grid background - dùng cho tất cả các ô item
     this.bgGrid = {
-      img: this._loadImg("assets/ui/grid_slot_bg.png"),
+      img: this._loadImg("assets/UI/grid_slot_bg.png"),
       sliceSize: 4,
       scale: 3,
     };
@@ -183,7 +183,7 @@ export class InventoryUI {
 
     /* --- GRID CONFIG --- */
     const SS = 60; // Kích thước slot
-    const G = 8; // Khoảng cách slot
+    const G = 4; // Khoảng cách slot
     const usableRightW = rightW - INNER_PAD * 2;
 
     let COLS = Math.floor((usableRightW + G) / (SS + G));
@@ -567,7 +567,7 @@ export class InventoryUI {
     ctx.fillStyle = "rgba(255,255,255,0.5)";
     ctx.font = "italic 12px Arial";
     ctx.textAlign = "center";
-    ctx.fillText("Unknown", passX + passW / 2, passY + PASSIVE_H / 2 + 4);
+    ctx.fillText("Đánh bại quái có tỉ lệ nhận trang bị", passX + passW / 2, passY + PASSIVE_H / 2 + 4);
 
     // --- D. HINT (Luôn ở đáy) ---
     ctx.fillStyle = "rgba(255,255,255,0.3)";
@@ -600,7 +600,7 @@ export class InventoryUI {
     const plusGap = 30;
     const rowW = SS * 3 + plusGap * 2;
     const rowX = lx + (leftW - rowW) / 2;
-    const rowY = ly + INNER_PAD + 32;
+    const rowY = ly + INNER_PAD + 48;
 
     for (let i = 0; i < 3; i++) {
       const sx = rowX + i * (SS + plusGap);
@@ -765,7 +765,7 @@ export class InventoryUI {
     ctx.fillText("MERGE", btnX + btnW / 2, btnY + btnH / 2 + 6);
 
     ctx.fillStyle = "rgba(255,255,255,0.35)";
-    ctx.font = "11px Arial";
+    ctx.font = "15px Arial";
     ctx.fillText(
       "Click item bên phải để chọn",
       lx + leftW / 2,
@@ -783,7 +783,7 @@ export class InventoryUI {
 
     // Tính toạ độ bắt đầu Grid có cộng thêm Offset để căn giữa
     const gridX = rx + INNER_PAD + gridOffsetX;
-    const gridY = ry + 30 + INNER_PAD + L.TAB_H; // Cộng thêm INNER_PAD vào Y để header không sát viền trên
+    const gridY = ry + INNER_PAD + L.TAB_H; // Cộng thêm INNER_PAD vào Y để header không sát viền trên
 
     // // Vẽ Header text
     // ctx.fillStyle = "#e0e0e0";
@@ -904,7 +904,7 @@ export class InventoryUI {
 
     // Phải dùng công thức toạ độ y hệt như _drawItemGrid
     const gridX = rx + INNER_PAD + gridOffsetX;
-    const gridY = ry + 30 + INNER_PAD + L.TAB_H;
+    const gridY = ry + INNER_PAD + L.TAB_H;
 
     for (let i = 0; i < this.inventory.items.length; i++) {
       const col = i % COLS;
@@ -999,7 +999,7 @@ export class InventoryUI {
       // ⭐ CHECK SELL BUTTON TRƯỚC item click
       const { rx, ry, SS, G, COLS, INNER_PAD, gridOffsetX } = L;
       const gridX = rx + INNER_PAD + gridOffsetX;
-      const gridY = ry + 30 + INNER_PAD + L.TAB_H;
+      const gridY = ry + INNER_PAD + L.TAB_H;
 
       for (let i = 0; i < this.inventory.items.length; i++) {
         const col = i % COLS;

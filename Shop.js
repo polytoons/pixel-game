@@ -9,21 +9,32 @@ export class Shop {
 
   generateShopItems() {
     this.items = [];
-
-    const rarities = ["common", "common", "rare", "rare", "epic", "legendary"];
     const types = ["helmet", "armor", "gloves", "boots"];
+    const rarityPool = [
+      { rarity: "common", weight: 75 },
+      { rarity: "rare", weight: 20 },
+      { rarity: "epic", weight: 4 },
+      { rarity: "legendary", weight: 1 },
+    ];
 
     for (let i = 0; i < 6; i++) {
       const type = types[Math.floor(Math.random() * types.length)];
-      const rarity = rarities[i];
-
-      // ⭐ Random variant
+      const rarity = this._weightedRandom(rarityPool);
       const variant = Math.floor(Math.random() * 3);
-
       const item = new Item(type, rarity, variant);
       item.price = this.calculatePrice(rarity);
       this.items.push(item);
     }
+  }
+
+  _weightedRandom(pool) {
+    const total = pool.reduce((sum, e) => sum + e.weight, 0);
+    let rand = Math.random() * total;
+    for (const entry of pool) {
+      rand -= entry.weight;
+      if (rand <= 0) return entry.rarity;
+    }
+    return pool[pool.length - 1].rarity;
   }
 
   calculatePrice(rarity) {

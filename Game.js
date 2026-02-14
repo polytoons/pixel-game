@@ -172,8 +172,6 @@ export class Game {
 
     this.gameState.setState("playing");
     this.waveManager.startNextWave(this.player.x, this.player.y);
-
-    this.soundManager.playWaveStart();
   }
 
   returnToLobby() {
@@ -292,6 +290,11 @@ export class Game {
       this.gameOverButtonClicked = false;
       this.soundManager.playGameOver();
     }
+
+    if (this.waveManager && this.waveManager.isCompleted) {
+      this.gameState.setState("victory");
+      this.gameOverButtonClicked = false;
+    }
   }
 
   draw() {
@@ -334,6 +337,10 @@ export class Game {
     if (this.gameState.getState() === "gameover") {
       this.drawGameOver();
     }
+
+    if (this.gameState.getState() === "victory") {
+      this.drawVictory();
+    }
   }
 
   drawGrid() {
@@ -370,20 +377,21 @@ export class Game {
 
     this.ctx.fillText(`HP: ${this.player.hp}/${this.player.maxHp}`, 10, 75);
 
-    this.ctx.fillStyle = "#FFC107";
+    this.ctx.font = "20px Arial";
+    this.ctx.fillStyle = "#ffffff";
     this.ctx.fillText(`💰 ${this.currency.getGold()}`, 10, 100);
 
     const stats = this.inventory.getTotalStats();
-    this.ctx.font = "14px Arial";
-    this.ctx.fillStyle = "#4CAF50";
+    this.ctx.font = "20px Arial";
+    this.ctx.fillStyle = "#ffffff";
     this.ctx.fillText(`⚔️ ${this.player.damage}`, 10, 125);
-    this.ctx.fillStyle = "#2196F3";
+    this.ctx.fillStyle = "#ffffff";
     this.ctx.fillText(`🛡️ ${this.player.armor}`, 10, 145);
-    this.ctx.fillStyle = "#FFC107";
+    this.ctx.fillStyle = "#ffffff";
     this.ctx.fillText(`⚡ ${this.player.speed.toFixed(1)}`, 10, 165);
 
     if (this.waveManager && this.waveManager.levelConfig) {
-      this.ctx.fillStyle = "#FFD700";
+      this.ctx.fillStyle = "#ffffff";
       this.ctx.font = "bold 14px Arial";
       this.ctx.textAlign = "right";
       this.ctx.fillText(
@@ -462,6 +470,89 @@ export class Game {
         this.gameOverButtonClicked = true;
 
         // ⭐ Đợi người dùng thả chuột trước khi quay về lobby
+        const checkMouseRelease = () => {
+          if (!this.inputHandler.mouseDown) {
+            this.returnToLobby();
+          } else {
+            requestAnimationFrame(checkMouseRelease);
+          }
+        };
+        requestAnimationFrame(checkMouseRelease);
+      }
+    }
+
+    this.ctx.textAlign = "left";
+  }
+
+  drawVictory() {
+    // Nền mờ
+    this.ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // Tiêu đề
+    this.ctx.fillStyle = "#FFD700";
+    this.ctx.font = "bold 48px Arial";
+    this.ctx.textAlign = "center";
+    this.ctx.fillText(
+      "CHIẾN THẮNG! 🏆",
+      this.canvas.width / 2,
+      this.canvas.height / 2 - 80,
+    );
+
+    // Thống kê
+    this.ctx.fillStyle = "#fff";
+    this.ctx.font = "24px Arial";
+    if (this.waveManager) {
+      this.ctx.fillText(
+        `Hoàn thành ${this.waveManager.maxWaves} đợt!`,
+        this.canvas.width / 2,
+        this.canvas.height / 2 - 20,
+      );
+      this.ctx.fillText(
+        `Tiêu diệt: ${this.waveManager.totalEnemiesKilled} quái`,
+        this.canvas.width / 2,
+        this.canvas.height / 2 + 20,
+      );
+    }
+    this.ctx.fillStyle = "#FFD700";
+    this.ctx.fillText(
+      `Vàng: ${this.currency.getGold()} 💰`,
+      this.canvas.width / 2,
+      this.canvas.height / 2 + 60,
+    );
+
+    // Nút quay lại
+    const btnWidth = 250,
+      btnHeight = 50;
+    const btnX = (this.canvas.width - btnWidth) / 2;
+    const btnY = this.canvas.height / 2 + 100;
+
+    this.ctx.fillStyle = "#FFD700";
+    this.ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
+    this.ctx.strokeStyle = "#b8860b";
+    this.ctx.lineWidth = 3;
+    this.ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
+
+    this.ctx.fillStyle = "#000";
+    this.ctx.font = "bold 20px Arial";
+    this.ctx.fillText("QUAY LẠI", this.canvas.width / 2, btnY + 33);
+
+    // Xử lý click nút
+    if (
+      !this.gameOverButtonClicked &&
+      this.gameState.getState() === "victory" &&
+      this.inputHandler.mouseDown
+    ) {
+      const mouseX = this.inputHandler.mouseX;
+      const mouseY = this.inputHandler.mouseY;
+
+      if (
+        mouseX >= btnX &&
+        mouseX <= btnX + btnWidth &&
+        mouseY >= btnY &&
+        mouseY <= btnY + btnHeight
+      ) {
+        this.gameOverButtonClicked = true;
         const checkMouseRelease = () => {
           if (!this.inputHandler.mouseDown) {
             this.returnToLobby();
