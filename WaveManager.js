@@ -40,6 +40,7 @@ export class WaveManager {
     // ⭐ THÊM: Lưu gold từ frame hiện tại
     this.goldThisFrame = 0;
     this.totalGoldEarned = 0;
+    this.enemyBullets = [];
 
     this.maxWaves = 10;
     this.isCompleted = false;
@@ -190,7 +191,7 @@ export class WaveManager {
     return { x, y };
   }
 
-  update(playerX, playerY, soundManager = null) {
+  update(playerX, playerY, soundManager = null, player = null) {
     if (soundManager) this.soundManager = soundManager;
 
     // ⭐ Reset gold counter mỗi frame
@@ -230,9 +231,27 @@ export class WaveManager {
       }
     }
 
-    this.enemies.forEach((enemy) => {
-      enemy.update(playerX, playerY);
+    this.enemies.forEach((enemy) => enemy.update(playerX, playerY, player));
+
+    const newBullets = [];
+    this.enemies.forEach((e) => {
+      const b = e.getAndClearBullets();
+      if (b.length) newBullets.push(...b);
     });
+    this.enemyBullets.push(...newBullets);
+
+    // ⭐ Update đạn (wraith nổ → sinh thêm đạn con)
+    const explosionBullets = [];
+    this.enemyBullets.forEach((b) => {
+      const spawned = b.update();
+      if (spawned.length) explosionBullets.push(...spawned);
+    });
+    this.enemyBullets.push(...explosionBullets);
+
+    // ⭐ Xóa đạn hết hiệu lực hoặc ra ngoài màn
+    this.enemyBullets = this.enemyBullets.filter(
+      (b) => b.active && !b.isOffScreen(this.canvasWidth, this.canvasHeight),
+    );
 
     // ⭐ CRITICAL: Lưu gold TRƯỚC KHI xóa enemies
     let killedCount = 0;
@@ -255,8 +274,8 @@ export class WaveManager {
           `💰 ${enemy.type} dropped ${goldDropped} gold (Total: ${this.totalGoldEarned})`,
         );
 
-        // Drop item (30% chance)
-        if (Math.random() < 0.3) {
+        // Drop item (20% chance)
+        if (Math.random() < 0.1) {
           const item = this.inventory.generateRandomItem();
           this.inventory.addItem(item);
         }
@@ -289,6 +308,8 @@ export class WaveManager {
     this.enemies.forEach((enemy) => {
       enemy.draw(ctx);
     });
+
+    this.enemyBullets.forEach((b) => b.draw(ctx));
 
     // if (
     //   this.isBossWave &&
@@ -340,6 +361,20 @@ export class WaveManager {
       if (enemy.active && enemy.collidesWithPlayer(player)) {
         playerHit = true;
         totalDamage = Math.max(totalDamage, enemy.getDamage());
+      }
+    });
+
+    this.enemyBullets.forEach((bullet) => {
+      if (!bullet.active) return;
+      if (bullet.hitPlayer(player)) {
+        // Wraith nổ khi chạm player
+        if (bullet.type === "wraith") {
+          const exploded = bullet.explode();
+          this.enemyBullets.push(...exploded);
+        }
+        bullet.active = false;
+        playerHit = true;
+        totalDamage = Math.max(totalDamage, bullet.damage);
       }
     });
 

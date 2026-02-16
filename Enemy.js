@@ -1,4 +1,5 @@
 import { SpriteAnimator } from "./SpriteAnimator.js";
+import { EnemyBullet } from "./EnemyBullet.js";
 
 export class Enemy {
   constructor(x, y, type = "zombie") {
@@ -12,6 +13,16 @@ export class Enemy {
     this.setupType();
 
     this.hp = this.maxHp;
+
+    this.shootCooldown = Math.floor(
+      Math.random() * Math.max(1, this.shootCooldownDuration),
+    );
+    this.spiralAngle = 0;
+    this.spiralCount = 0; // ⭐ đếm số phát đã bắn trong 1 vòng
+    this.spiralCooldown = 0; // ⭐ thời gian nghỉ sau khi xoay hết 360°
+    this.pendingBullets = [];
+    this.isInShootRange = false;
+    this.spiralAngle = 0;
 
     // Animation
     this.animator = new SpriteAnimator(this.getSpriteSheet(), 16, 16, {
@@ -68,6 +79,11 @@ export class Enemy {
     this.goldDrop = [5, 15]; // [min, max]
     this.isBoss = false;
 
+    this.canShoot = false;
+    this.shootRange = 0;
+    this.shootCooldownDuration = 120;
+    this.stopToShoot = false;
+
     switch (this.type) {
       // ==========================================
       // LEVEL 1 - LÀNG KHỞI ĐẦU (Dễ)
@@ -78,6 +94,7 @@ export class Enemy {
         this.damage = 8;
         this.armor = 0;
         this.goldDrop = [3, 8];
+
         break;
       case "skeleton":
         this.speed = 1.8;
@@ -85,6 +102,11 @@ export class Enemy {
         this.damage = 10;
         this.armor = 0;
         this.goldDrop = [5, 10];
+
+        this.canShoot = true;
+        this.shootRange = 400;
+        this.shootCooldownDuration = 180; // 2s
+        this.stopToShoot = true;
         break;
       // ==========================================
       // LEVEL 2 - RỪNG TỐI (Trung Bình)
@@ -102,6 +124,11 @@ export class Enemy {
         this.damage = 15;
         this.armor = 10;
         this.goldDrop = [12, 20];
+
+        this.canShoot = true;
+        this.shootRange = 450;
+        this.shootCooldownDuration = 180; // 2.5s
+        this.stopToShoot = true;
         break;
       case "darkwolf":
         this.speed = 2.5;
@@ -126,6 +153,11 @@ export class Enemy {
         this.damage = 18;
         this.armor = 8;
         this.goldDrop = [18, 30];
+
+        this.canShoot = true;
+        this.shootRange = 500;
+        this.shootCooldownDuration = 240; // 4s
+        this.stopToShoot = true;
         break;
       case "golem":
         this.speed = 0.8;
@@ -133,6 +165,11 @@ export class Enemy {
         this.damage = 25;
         this.armor = 25;
         this.goldDrop = [25, 40];
+
+        this.canShoot = true;
+        this.shootRange = 380;
+        this.shootCooldownDuration = 200; // sẽ bị override bởi random cuối setupType()
+        this.stopToShoot = true;
         break;
       // ==========================================
       // LEVEL 4 - ĐỊA NGỤC (Cực Khó)
@@ -143,6 +180,11 @@ export class Enemy {
         this.damage = 30;
         this.armor = 20;
         this.goldDrop = [40, 60];
+
+        this.canShoot = true;
+        this.shootRange = 350;
+        this.shootCooldownDuration = 4;
+        this.stopToShoot = true;
         break;
       case "lich":
         this.speed = 1.6;
@@ -157,19 +199,34 @@ export class Enemy {
         this.damage = 35;
         this.armor = 30;
         this.goldDrop = [50, 80];
+
+        this.canShoot = true;
+        this.shootRange = 350;
+        this.shootCooldownDuration = 180; // 3s
+        this.stopToShoot = false;
         break;
+    }
+
+    if (this.canShoot) {
+      const min = 120,
+        max = 360;
+      const rand = Math.floor(Math.random() * (max - min + 1)) + min;
+
+      if (this.type === "dragon") {
+        // Dragon: shootCooldownDuration giữ nguyên 12 (tốc độ từng viên xoắn ốc)
+        // Chỉ random thời gian nghỉ sau mỗi vòng 360°
+        this.spiralRestDuration = rand;
+      } else {
+        // Skeleton, Orc, Wraith, Titan: random thời gian giữa các lần bắn
+        this.shootCooldownDuration = rand;
+      }
     }
   }
 
-  update(playerX, playerY) {
-    // Nếu chết, chỉ update animation
+  update(playerX, playerY, player = null) {
     if (this.isDead) {
       this.animator.update();
-
-      // Xóa enemy khi animation chết xong
-      if (this.animator.isAnimationComplete()) {
-        this.active = false;
-      }
+      if (this.animator.isAnimationComplete()) this.active = false;
       return;
     }
 
@@ -177,16 +234,40 @@ export class Enemy {
     const dy = playerY - this.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    if (distance > 0) {
+    if (this.shootCooldown > 0) this.shootCooldown--;
+    if (this.spiralCooldown > 0) this.spiralCooldown--;
+
+    if (this.canShoot) {
+      if (!this.isInShootRange && distance <= this.shootRange) {
+        this.isInShootRange = true;
+      } else if (this.isInShootRange && distance > this.shootRange * 1.2) {
+        this.isInShootRange = false;
+      }
+    }
+
+    const spiralResting = this.type === "dragon" && this.spiralCooldown > 0;
+    if (
+      this.canShoot &&
+      this.isInShootRange &&
+      this.shootCooldown <= 0 &&
+      !spiralResting
+    ) {
+      this._shoot(playerX, playerY, player);
+      this.shootCooldown = this.shootCooldownDuration;
+    }
+
+    // Di chuyển (dừng nếu stopToShoot và đang trong range)
+    const shouldMove =
+      distance > 0 && (!this.stopToShoot || !this.isInShootRange);
+    if (shouldMove) {
       this.x += (dx / distance) * this.speed;
       this.y += (dy / distance) * this.speed;
-
-      this.animator.updateDirection(playerX, playerY, this.x, this.y);
       this.animator.setState("run");
     } else {
       this.animator.setState("idle");
     }
 
+    this.animator.updateDirection(playerX, playerY, this.x, this.y);
     this.animator.update();
   }
 
@@ -292,5 +373,139 @@ export class Enemy {
   getGoldDrop() {
     const [min, max] = this.goldDrop;
     return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  _shoot(playerX, playerY, player = null) {
+    const dx = playerX - this.x;
+    const dy = playerY - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const angle = Math.atan2(dy, dx);
+
+    switch (this.type) {
+      case "skeleton": {
+        // 1 viên thẳng về phía player
+        const spd = 5;
+        this.pendingBullets.push(
+          new EnemyBullet(
+            this.x,
+            this.y,
+            (dx / dist) * spd,
+            (dy / dist) * spd,
+            Math.floor(this.damage * 0.5),
+            { radius: 5, color: "#aaffaa", maxLifetime: 210 },
+          ),
+        );
+        break;
+      }
+      case "orc": {
+        // 3 viên hình nón ±20°
+        const spd = 5;
+        for (const offset of [-0.35, 0, 0.35]) {
+          const a = angle + offset;
+          this.pendingBullets.push(
+            new EnemyBullet(
+              this.x,
+              this.y,
+              Math.cos(a) * spd,
+              Math.sin(a) * spd,
+              Math.floor(this.damage * 0.4),
+              { radius: 7, color: "#ff8800", maxLifetime: 220 },
+            ),
+          );
+        }
+        break;
+      }
+      case "wraith": {
+        // 1 viên to, bay đến vị trí hiện tại của player rồi nổ
+        const spd = 8;
+        this.pendingBullets.push(
+          new EnemyBullet(
+            this.x,
+            this.y,
+            (dx / dist) * spd,
+            (dy / dist) * spd,
+            Math.floor(this.damage * 0.7),
+            {
+              radius: 14,
+              color: "#aa00ff",
+              type: "wraith",
+              targetX: playerX,
+              targetY: playerY,
+              maxLifetime: 360,
+              maxTrail: 8,
+            },
+          ),
+        );
+        break;
+      }
+      case "titan": {
+        // 12 viên toả đều 360°
+        const count = 12,
+          spd = 5;
+        for (let i = 0; i < count; i++) {
+          const a = ((Math.PI * 2) / count) * i;
+          this.pendingBullets.push(
+            new EnemyBullet(
+              this.x,
+              this.y,
+              Math.cos(a) * spd,
+              Math.sin(a) * spd,
+              Math.floor(this.damage * 0.35),
+              { radius: 7, color: "#ff2222", maxLifetime: 480 },
+            ),
+          );
+        }
+        break;
+      }
+      case "dragon": {
+        // 1 viên theo hình xoắn ốc, góc tăng dần mỗi lần bắn
+        const spd = 5;
+        this.pendingBullets.push(
+          new EnemyBullet(
+            this.x,
+            this.y,
+            Math.cos(this.spiralAngle) * spd,
+            Math.sin(this.spiralAngle) * spd,
+            Math.floor(this.damage * 0.3),
+            { radius: 7, color: "#ff4400", maxLifetime: 280, maxTrail: 8 },
+          ),
+        );
+        this.spiralAngle += Math.PI / 6; // +30° mỗi phát
+        this.spiralCount++;
+
+        if (this.spiralCount >= 12) {
+          this.spiralCount = 0;
+          this.spiralAngle = 0;
+          this.spiralCooldown = this.spiralRestDuration; // 2s ở 60fps
+        }
+        break;
+      }
+      case "golem": {
+        const spd = 3.5;
+        this.pendingBullets.push(
+          new EnemyBullet(
+            this.x,
+            this.y,
+            (dx / dist) * spd,
+            (dy / dist) * spd,
+            Math.floor(this.damage * 0.6),
+            {
+              radius: 10,
+              color: "#44bbff",
+              maxLifetime: 360, // 6s – đủ lâu để truy đuổi
+              maxTrail: 10,
+              target: player, // ⭐ truyền reference player
+              turnRate: 0.025, // ⭐ ~1.4°/frame – xoay chậm, không gắt
+            },
+          ),
+        );
+      }
+    }
+  }
+
+  getAndClearBullets() {
+    const b = this.pendingBullets;
+    this.pendingBullets = [];
+    return b;
   }
 }

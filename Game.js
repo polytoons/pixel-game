@@ -266,7 +266,8 @@ export class Game {
     const killedCount = this.waveManager.update(
       this.player.x,
       this.player.y,
-      this.soundManager, // Thêm param
+      this.soundManager,
+      this.player,
     );
 
     if (killedCount > 0) {
