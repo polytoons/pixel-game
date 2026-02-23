@@ -434,18 +434,18 @@ if (goldEarned > 0) {
     this.ctx.font = "24px Arial";
     if (this.waveManager) {
       this.ctx.fillText(
-        `Đạt đến đợt: ${this.waveManager.currentWave}`,
+        `Reach wave: ${this.waveManager.currentWave}`,
         this.canvas.width / 2,
         this.canvas.height / 2 - 30,
       );
       this.ctx.fillText(
-        `Tiêu diệt: ${this.waveManager.totalEnemiesKilled} quái`,
+        `Killed: ${this.waveManager.totalEnemiesKilled} enemies`,
         this.canvas.width / 2,
         this.canvas.height / 2 + 10,
       );
     }
     this.ctx.fillText(
-      `Vàng: ${this.currency.getGold()}💰`,
+      `Gold: ${this.currency.getGold()}💰`,
       this.canvas.width / 2,
       this.canvas.height / 2 + 50,
     );
@@ -464,7 +464,7 @@ if (goldEarned > 0) {
 
     this.ctx.fillStyle = "#fff";
     this.ctx.font = "bold 20px Arial";
-    this.ctx.fillText("QUAY LẠI", this.canvas.width / 2, btnY + 33);
+    this.ctx.fillText("RETURN", this.canvas.width / 2, btnY + 33);
 
     // ⭐ Chỉ xử lý click nếu chưa được click và đang ở game over state
     if (
@@ -509,7 +509,7 @@ if (goldEarned > 0) {
     this.ctx.font = "bold 48px Arial";
     this.ctx.textAlign = "center";
     this.ctx.fillText(
-      "CHIẾN THẮNG! 🏆",
+      "VICTORY! 🏆",
       this.canvas.width / 2,
       this.canvas.height / 2 - 80,
     );
@@ -519,19 +519,19 @@ if (goldEarned > 0) {
     this.ctx.font = "24px Arial";
     if (this.waveManager) {
       this.ctx.fillText(
-        `Hoàn thành ${this.waveManager.maxWaves} đợt!`,
+        `Completed ${this.waveManager.maxWaves} waves!`,
         this.canvas.width / 2,
         this.canvas.height / 2 - 20,
       );
       this.ctx.fillText(
-        `Tiêu diệt: ${this.waveManager.totalEnemiesKilled} quái`,
+        `Killed: ${this.waveManager.totalEnemiesKilled} enemies`,
         this.canvas.width / 2,
         this.canvas.height / 2 + 20,
       );
     }
     this.ctx.fillStyle = "#FFD700";
     this.ctx.fillText(
-      `Vàng: ${this.currency.getGold()} 💰`,
+      `Gold: ${this.currency.getGold()} 💰`,
       this.canvas.width / 2,
       this.canvas.height / 2 + 60,
     );
@@ -550,7 +550,7 @@ if (goldEarned > 0) {
 
     this.ctx.fillStyle = "#000";
     this.ctx.font = "bold 20px Arial";
-    this.ctx.fillText("QUAY LẠI", this.canvas.width / 2, btnY + 33);
+    this.ctx.fillText("RETURN", this.canvas.width / 2, btnY + 33);
 
     // Xử lý click nút
     if (

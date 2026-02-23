@@ -18,24 +18,24 @@ export class InventoryUI {
      * Ví dụ: ảnh 16x16 thì slice 5px, ảnh 32x32 thì slice 8-10px
      ───────────────────────────────────────────────── */
     this.bgOuter = {
-      img: this._loadImg("assets/UI/panel_outer_bg.png"),
+      img: this._loadImg("assets/ui/panel_outer_bg.png"),
       sliceSize: 5,
       scale: 4,
     };
     this.bgPanel = {
-      img: this._loadImg("assets/UI/panel_bg.png"),
+      img: this._loadImg("assets/ui/panel_bg.png"),
       sliceSize: 5,
       scale: 6,
     };
     // Button background - dùng chung cho tabs và buttons
     this.bgButton = {
-      img: this._loadImg("assets/UI/button_bg.png"),
+      img: this._loadImg("assets/ui/button_bg.png"),
       sliceSize: 3,
       scale: 3,
     };
     // Grid background - dùng cho tất cả các ô item
     this.bgGrid = {
-      img: this._loadImg("assets/UI/grid_slot_bg.png"),
+      img: this._loadImg("assets/ui/grid_slot_bg.png"),
       sliceSize: 4,
       scale: 3,
     };
