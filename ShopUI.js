@@ -243,7 +243,7 @@ export class ShopUI {
     ctx.font = "bold 14px Arial";
     ctx.textAlign = "center";
     ctx.fillText(
-      `Làm mới (${this.shop.refreshCost}💰)`,
+      `REFRESH (${this.shop.refreshCost}💰)`,
       rBtnX + rBtnW / 2,
       rBtnY + rBtnH / 2 + 5,
     );
@@ -313,7 +313,7 @@ export class ShopUI {
       ctx.fillStyle = "rgba(255,255,255,0.2)";
       ctx.font = "italic 14px Arial";
       ctx.textAlign = "center";
-      ctx.fillText("--- Đã bán ---", x + w / 2, y + h / 2 + 5);
+      ctx.fillText("--- SOLD ---", x + w / 2, y + h / 2 + 5);
       return;
     }
 
@@ -394,7 +394,7 @@ export class ShopUI {
     ctx.fillStyle = canAfford ? "#fff" : "#666";
     ctx.font = "bold 15px Arial";
     ctx.textAlign = "center";
-    ctx.fillText("MUA", btnX + btnW / 2, btnY + btnH / 2 + 5);
+    ctx.fillText("BUY", btnX + btnW / 2, btnY + btnH / 2 + 5);
   }
 
   /* ══════════════════════════════════════════════════════════

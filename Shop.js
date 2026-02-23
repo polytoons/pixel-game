@@ -20,7 +20,7 @@ export class Shop {
     for (let i = 0; i < 6; i++) {
       const type = types[Math.floor(Math.random() * types.length)];
       const rarity = this._weightedRandom(rarityPool);
-      const variant = Math.floor(Math.random() * 3);
+      const variant = Math.floor(Math.random() * 8);
       const item = new Item(type, rarity, variant);
       item.price = this.calculatePrice(rarity);
       this.items.push(item);

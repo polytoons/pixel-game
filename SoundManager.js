@@ -10,7 +10,8 @@ export class SoundManager {
     // ⭐ Flag để track user interaction
     this.userInteracted = false;
     this.attemptedAutoplay = false;
-
+    
+    this._audioPool = {}; // ← THÊM vào constructor
     this.loadSounds();
     this.loadMusic();
     this.setupVisibilityHandler();
@@ -28,28 +29,65 @@ export class SoundManager {
       playerHit: "assets/sounds/player_hit.wav",
       uiClick: "assets/sounds/ui_click.wav",
       waveStart: "assets/sounds/wave_start.wav",
-      // bossSpawn: "assets/sounds/boss_spawn.mp3",
+      bossHit: "assets/sounds/boss_hit.wav",
       gameOver: "assets/sounds/game_over.mp3",
     };
-
+    
+    this._poolIdx = {};      // con trỏ round-robin mỗi sound
+    
     for (const [name, path] of Object.entries(soundFiles)) {
-      const audio = new Audio();
-      audio.src = path;
-      audio.volume = this.soundVolume;
-      audio.preload = "auto";
-      this.sounds[name] = audio;
+      this._audioPool[name] = Array.from({ length: 3 }, () => {
+      const a = new Audio(path);
+      a.volume = this.soundVolume;
+      a.preload = "auto";
+      return a;
+    });
+    this._poolIdx[name] = 0;
     }
   }
 
   loadMusic() {
-    this.music = new Audio("assets/music/background.ogg");
-    this.music.volume = this.musicVolume;
-    this.music.loop = true;
-    this.music.preload = "auto";
-    
-    // ⭐ KHÔNG dùng autoplay attribute vì sẽ bị chặn có âm thanh
-    this.music.autoplay = false;
+  // Nhạc màn thường (giữ nguyên file cũ)
+  this.musicNormal = new Audio("assets/music/background.ogg");
+  this.musicNormal.volume = this.musicVolume;
+  this.musicNormal.loop   = true;
+  this.musicNormal.preload = "auto";
+  this.musicNormal.autoplay = false;
+
+  // Nhạc màn boss (thêm mới)
+  this.musicBoss = new Audio("assets/music/fight.ogg"); // ← đổi đường dẫn
+  this.musicBoss.volume = this.musicVolume;
+  this.musicBoss.loop   = true;
+  this.musicBoss.preload = "auto";
+  this.musicBoss.autoplay = false;
+
+  // Alias: this.music trỏ vào track đang active (tương thích code cũ)
+  this.music = this.musicNormal;
+}
+
+playBgm(type = "normal") {
+  const next = type === "boss" ? this.musicBoss : this.musicNormal;
+  if (this.music === next && !next.paused) return; // đang phát đúng track rồi
+
+  // Dừng track hiện tại
+  if (this.music) {
+    this.music.pause();
+    this.music.currentTime = 0;
   }
+
+  this.music = next; // cập nhật alias
+
+  if (this.musicEnabled && this.userInteracted) {
+    this.music.play().catch(e => console.warn("BGM play failed:", e.message));
+  }
+}
+
+stopBgm() {
+  if (this.music) {
+    this.music.pause();
+    this.music.currentTime = 0;
+  }
+}
 
   // ⭐ THÊM: Tự động phát nhạc khi user tương tác lần đầu
   setupAutoplayOnInteraction() {
@@ -102,37 +140,39 @@ export class SoundManager {
   }
 
   cleanup() {
-    if (this.music) {
-      this.music.pause();
-      this.music.currentTime = 0;
-      this.music.src = "";
-      this.music.load(); // Force unload
+  for (const bgm of [this.musicNormal, this.musicBoss]) {
+    if (bgm) {
+      bgm.pause();
+      bgm.currentTime = 0;
+      bgm.src = "";
+      bgm.load();
     }
-
-    for (const sound of Object.values(this.sounds)) {
-      if (sound) {
-        sound.pause();
-        sound.currentTime = 0;
-        sound.src = "";
-        sound.load();
-      }
-    }
-
-    console.log("🔇 Audio cleaned up");
   }
+  // SỬA: duyệt _audioPool thay vì this.sounds
+  for (const pool of Object.values(this._audioPool)) {
+    for (const audio of pool) {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.src = "";
+      audio.load();
+    }
+  }
+  console.log("🔇 Audio cleaned up");
+}
 
   play(soundName) {
     if (!this.soundEnabled) return;
-    
-    const sound = this.sounds[soundName];
-    if (!sound) return;
+  const pool = this._audioPool[soundName];
+  if (!pool) return;
 
-    // Clone để có thể phát nhiều sound cùng lúc
-    const clone = sound.cloneNode();
-    clone.volume = this.soundVolume;
-    clone.play().catch(e => {
-      console.warn(`Failed to play ${soundName}:`, e.message);
-    });
+  // Lấy slot theo round-robin
+  const idx   = this._poolIdx[soundName];
+  const audio = pool[idx];
+  this._poolIdx[soundName] = (idx + 1) % pool.length;
+
+  audio.currentTime = 0;
+  audio.volume      = this.soundVolume;
+  audio.play().catch(() => {});
   }
 
   // Gameplay sounds
@@ -140,6 +180,7 @@ export class SoundManager {
   playHit() { this.play("hit"); }
   playEnemyDie() { this.play("enemyDie"); }
   playPlayerHit() { this.play("playerHit"); }
+  playBossHit() { this.play("bossHit"); }
   playUIClick() { this.play("uiClick"); }
   playWaveStart() { this.play("waveStart"); }
   // playBossSpawn() { this.play("bossSpawn"); }
@@ -181,18 +222,19 @@ export class SoundManager {
   }
 
   setSoundVolume(volume) {
-    this.soundVolume = Math.max(0, Math.min(1, volume));
-    for (const sound of Object.values(this.sounds)) {
-      sound.volume = this.soundVolume;
+  this.soundVolume = Math.max(0, Math.min(1, volume));
+  for (const pool of Object.values(this._audioPool)) {
+    for (const audio of pool) {
+      audio.volume = this.soundVolume;
     }
   }
+}
 
   setMusicVolume(volume) {
     this.musicVolume = Math.max(0, Math.min(1, volume));
-    if (this.music) {
-      this.music.volume = this.musicVolume;
-    }
-  }
+  if (this.musicNormal) this.musicNormal.volume = this.musicVolume;
+  if (this.musicBoss)   this.musicBoss.volume   = this.musicVolume;
+}
 
   toggleSound() {
     this.soundEnabled = !this.soundEnabled;

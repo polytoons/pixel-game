@@ -8,6 +8,8 @@ export class Map {
     this.scaledTileSize = this.tileSize * this.scale;
     this.collisionPolygons = [];
     this.images = {};
+    this._mapCache = null;
+this._mapCacheDirty = true;
   }
 
   async load(mapPath) {
@@ -78,18 +80,58 @@ export class Map {
   }
 
   draw(ctx, camera) {
-    this.mapData.layers.forEach((layer) => {
+  // Tạo cache lần đầu
+  if (!this._mapCache) {
+    this._mapCache = document.createElement("canvas");
+    this._mapCache.width  = this.getMapWidth();
+    this._mapCache.height = this.getMapHeight();
+    const cacheCtx = this._mapCache.getContext("2d");
+    // Vẽ toàn bộ tile vào cache 1 lần duy nhất
+    this.mapData.layers.forEach(layer => {
       if (layer.type === "tilelayer" && layer.visible) {
-        this.drawTileLayer(ctx, layer, camera);
-      } else if (
-        layer.type === "objectgroup" &&
-        layer.visible &&
-        layer.name !== "Collision"
-      ) {
-        this.drawObjectLayer(ctx, layer, camera);
+        this._drawTileLayerToCache(cacheCtx, layer);
       }
     });
   }
+
+  // Mỗi frame chỉ blit đoạn camera nhìn thấy — rất nhanh
+  ctx.drawImage(
+    this._mapCache,
+    camera.x, camera.y, camera.width, camera.height, // source
+    0,        0,        camera.width, camera.height  // dest
+  );
+
+  // Object layer vẫn vẽ bình thường (có thể animated)
+  this.mapData.layers.forEach(layer => {
+    if (layer.type === "objectgroup" && layer.visible && layer.name !== "Collision") {
+      this.drawObjectLayer(ctx, layer, camera);
+    }
+  });
+}
+
+  _drawTileLayerToCache(ctx, layer) {
+  const { data, width, height } = layer;
+  ctx.imageSmoothingEnabled = false;
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      const gid = data[row * width + col];
+      if (gid === 0) continue;
+      const tilesetInfo = this.getTilesetForGid(gid);
+      if (!tilesetInfo) continue;
+      const localId  = gid - tilesetInfo.firstgid;
+      const srcX = (localId % tilesetInfo.columns) * this.tileSize;
+      const srcY = Math.floor(localId / tilesetInfo.columns) * this.tileSize;
+      const img  = this.images[tilesetInfo.name];
+      if (img) {
+        ctx.drawImage(img,
+          srcX, srcY, this.tileSize, this.tileSize,
+          col * this.scaledTileSize, row * this.scaledTileSize,
+          this.scaledTileSize + 1, this.scaledTileSize + 1
+        );
+      }
+    }
+  }
+}
 
   drawTileLayer(ctx, layer, camera) {
     const data = layer.data;

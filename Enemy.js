@@ -21,6 +21,8 @@ export class Enemy {
     this.spiralCount = 0; // ⭐ đếm số phát đã bắn trong 1 vòng
     this.spiralCooldown = 0; // ⭐ thời gian nghỉ sau khi xoay hết 360°
     this.pendingBullets = [];
+    this._bulletPool  = [];
+    this._poolNextIdx = 0;
     this.isInShootRange = false;
     this.spiralAngle = 0;
 
@@ -223,27 +225,82 @@ export class Enemy {
     }
   }
 
+  _acquireBullet(x, y, vx, vy, dmg, opts) {
+  const len = this._bulletPool.length;
+  for (let i = 0; i < len; i++) {
+    const idx = (this._poolNextIdx + i) % len;
+    const b   = this._bulletPool[idx];
+    if (!b.active) {
+      this._poolNextIdx = (idx + 1) % len;
+      return this._resetBullet(b, x, y, vx, vy, dmg, opts);
+    }
+  }
+  if (this._bulletPool.length < 60) { // cap 60 mỗi enemy là đủ
+    const b = new EnemyBullet(x, y, vx, vy, dmg, opts);
+    this._bulletPool.push(b);
+    this._poolNextIdx = 0;
+    return b;
+  }
+  return null;
+}
+
+_resetBullet(b, x, y, vx, vy, dmg, opts) {
+  b.x = x; b.y = y; b.vx = vx; b.vy = vy;
+  b.damage      = dmg;
+  b.active      = true;
+  b.lifetime    = 0;
+  b.maxLifetime = opts.maxLifetime ?? 180;
+  b.radius      = opts.radius      ?? 8;
+  b.color       = opts.color       ?? "#ffffff";
+  b.trail       = [];
+  b.maxTrail    = opts.maxTrail    ?? 6;
+  b.waveAmplitude = 0;
+  b.waveFrequency = 0.10;
+  b.waveOffset    = 0;
+  b.target        = opts.target   ?? null;
+  b.turnRate      = opts.turnRate ?? 0;
+  b.targetX       = opts.targetX  ?? null;
+  b.targetY       = opts.targetY  ?? null;
+  b.type          = opts.type     ?? "normal";
+  b.spriteFrame     = 0;
+  b.spriteFrameTick = 0;
+  if ("exploded" in b) b.exploded = false;
+  b._perpX = 0; b._perpY = 0;
+  return b;
+}
+
   update(playerX, playerY, player = null) {
-    if (this.isDead) {
-      this.animator.update();
-      if (this.animator.isAnimationComplete()) this.active = false;
+  if (this.isDead) {
+    this.animator.update();
+    if (this.animator.isAnimationComplete()) this.active = false;
+    return;
+  }
+
+  // ← THÊM: enemy rất xa chỉ update mỗi 3 frame
+  const dxQ = playerX - this.x, dyQ = playerY - this.y;
+  if (dxQ * dxQ + dyQ * dyQ > 900 * 900) { // > 900px
+    if ((this._skipTick = ((this._skipTick || 0) + 1) % 3) !== 0) {
+      this.x += this.velocityX ?? 0; // vẫn di chuyển theo vận tốc cũ
+      this.y += this.velocityY ?? 0;
       return;
     }
-
+  }
     const dx = playerX - this.x;
     const dy = playerY - this.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const distSq = dx * dx + dy * dy;             // ← không cần sqrt
+const distance = distSq > 0 ? Math.sqrt(distSq) : 0;
 
     if (this.shootCooldown > 0) this.shootCooldown--;
     if (this.spiralCooldown > 0) this.spiralCooldown--;
 
     if (this.canShoot) {
-      if (!this.isInShootRange && distance <= this.shootRange) {
-        this.isInShootRange = true;
-      } else if (this.isInShootRange && distance > this.shootRange * 1.2) {
-        this.isInShootRange = false;
-      }
-    }
+  const rangeSq = this.shootRange * this.shootRange; // ← so sánh bình phương
+  if (!this.isInShootRange && distSq <= rangeSq) {
+    this.isInShootRange = true;
+  } else if (this.isInShootRange && distSq > rangeSq * 1.44) { // 1.2² = 1.44
+    this.isInShootRange = false;
+  }
+}
 
     const spiralResting = this.type === "dragon" && this.spiralCooldown > 0;
     if (
@@ -276,17 +333,12 @@ export class Enemy {
 
     // Shadow (không vẽ khi chết)
     if (!this.isDead) {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
-      ctx.beginPath();
-      ctx.ellipse(
-        this.x,
-        this.y + this.height / 2 + 5,
-        this.width / 2,
-        this.height / 4,
-        0,
-        0,
-        Math.PI * 2,
-      );
+      ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+  ctx.fillRect(
+    this.x - this.width / 2,
+    this.y + this.height / 2,
+    this.width, 6
+  );
       ctx.fill();
     }
 
@@ -302,7 +354,8 @@ export class Enemy {
   }
 
   drawHealthBar(ctx) {
-    const barWidth = this.width;
+    if (this.hp >= this.maxHp) return; // ← THÊM: skip nếu chưa bị thương
+  const barWidth = this.width;
     const barHeight = 5;
     const barX = this.x - barWidth / 2;
     const barY = this.y - this.height / 2 - 10;
@@ -354,16 +407,23 @@ export class Enemy {
   }
 
   collidesWithPlayer(player) {
-    if (this.isDead) return false;
+    if (!this.active) return false;
 
-    const distX = Math.abs(this.x - player.x);
-    const distY = Math.abs(this.y - player.y);
+  // Lấy hitbox của player (fallback về width/height nếu chưa có)
+  const phcx = player.x + (player.hitboxOffsetX ?? 0);
+  const phcy = player.y + (player.hitboxOffsetY ?? 0);
+  const pw   = (player.hitboxW ?? player.width)  / 2;
+  const ph   = (player.hitboxH ?? player.height) / 2;
 
-    return (
-      distX < (this.width + player.width) / 2 &&
-      distY < (this.height + player.height) / 2
-    );
-  }
+  // Hitbox của enemy (dùng width/height thô nếu enemy không có hitbox riêng)
+  const ehw = (this.hitboxW ?? this.width)  / 2;
+  const ehh = (this.hitboxH ?? this.height) / 2;
+
+  return (
+    Math.abs(this.x - phcx) < ehw + pw &&
+    Math.abs(this.y - phcy) < ehh + ph
+  );
+}
 
   getDamage() {
     return this.damage;
@@ -376,132 +436,84 @@ export class Enemy {
   }
 
   _shoot(playerX, playerY, player = null) {
-    const dx = playerX - this.x;
-    const dy = playerY - this.y;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const angle = Math.atan2(dy, dx);
+  const dx = playerX - this.x;
+  const dy = playerY - this.y;
+  const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+  const angle = Math.atan2(dy, dx);
 
-    switch (this.type) {
-      case "skeleton": {
-        // 1 viên thẳng về phía player
-        const spd = 5;
-        this.pendingBullets.push(
-          new EnemyBullet(
-            this.x,
-            this.y,
-            (dx / dist) * spd,
-            (dy / dist) * spd,
-            Math.floor(this.damage * 0.5),
-            { radius: 5, color: "#aaffaa", maxLifetime: 210 },
-          ),
+  switch (this.type) {
+    case "skeleton": {
+      const b = this._acquireBullet(
+        this.x, this.y, (dx/dist)*5, (dy/dist)*5,
+        Math.floor(this.damage * 0.5),
+        { radius: 8, color: "#aaffaa", maxLifetime: 210 }
+      );
+      if (b) this.pendingBullets.push(b);
+      break;
+    }
+    case "orc": {
+      for (const off of [-0.35, 0, 0.35]) {
+        const a = angle + off;
+        const b = this._acquireBullet(
+          this.x, this.y, Math.cos(a)*5, Math.sin(a)*5,
+          Math.floor(this.damage * 0.4),
+          { radius: 8, color: "#ff8800", maxLifetime: 220 }
         );
-        break;
+        if (b) this.pendingBullets.push(b);
       }
-      case "orc": {
-        // 3 viên hình nón ±20°
-        const spd = 5;
-        for (const offset of [-0.35, 0, 0.35]) {
-          const a = angle + offset;
-          this.pendingBullets.push(
-            new EnemyBullet(
-              this.x,
-              this.y,
-              Math.cos(a) * spd,
-              Math.sin(a) * spd,
-              Math.floor(this.damage * 0.4),
-              { radius: 7, color: "#ff8800", maxLifetime: 220 },
-            ),
-          );
-        }
-        break;
-      }
-      case "wraith": {
-        // 1 viên to, bay đến vị trí hiện tại của player rồi nổ
-        const spd = 8;
-        this.pendingBullets.push(
-          new EnemyBullet(
-            this.x,
-            this.y,
-            (dx / dist) * spd,
-            (dy / dist) * spd,
-            Math.floor(this.damage * 0.7),
-            {
-              radius: 14,
-              color: "#aa00ff",
-              type: "wraith",
-              targetX: playerX,
-              targetY: playerY,
-              maxLifetime: 360,
-              maxTrail: 8,
-            },
-          ),
+      break;
+    }
+    case "wraith": {
+      const b = this._acquireBullet(
+        this.x, this.y, (dx/dist)*8, (dy/dist)*8,
+        Math.floor(this.damage * 0.7),
+        { radius: 16, color: "#aa00ff", type: "wraith",
+          targetX: playerX, targetY: playerY, maxLifetime: 360, maxTrail: 8 }
+      );
+      if (b) this.pendingBullets.push(b);
+      break;
+    }
+    case "titan": {
+      const count = 12, spd = 5;
+      for (let i = 0; i < count; i++) {
+        const a = (Math.PI * 2 / count) * i;
+        const b = this._acquireBullet(
+          this.x, this.y, Math.cos(a)*spd, Math.sin(a)*spd,
+          Math.floor(this.damage * 0.35),
+          { radius: 8, color: "#ff2222", maxLifetime: 480 }
         );
-        break;
+        if (b) this.pendingBullets.push(b);
       }
-      case "titan": {
-        // 12 viên toả đều 360°
-        const count = 12,
-          spd = 5;
-        for (let i = 0; i < count; i++) {
-          const a = ((Math.PI * 2) / count) * i;
-          this.pendingBullets.push(
-            new EnemyBullet(
-              this.x,
-              this.y,
-              Math.cos(a) * spd,
-              Math.sin(a) * spd,
-              Math.floor(this.damage * 0.35),
-              { radius: 7, color: "#ff2222", maxLifetime: 480 },
-            ),
-          );
-        }
-        break;
+      break;
+    }
+    case "dragon": {
+      const b = this._acquireBullet(
+        this.x, this.y,
+        Math.cos(this.spiralAngle)*5, Math.sin(this.spiralAngle)*5,
+        Math.floor(this.damage * 0.3),
+        { radius: 8, color: "#ff4400", maxLifetime: 280, maxTrail: 8 }
+      );
+      if (b) this.pendingBullets.push(b);
+      this.spiralAngle += Math.PI / 6;
+      this.spiralCount++;
+      if (this.spiralCount >= 12) {
+        this.spiralCount = 0; this.spiralAngle = 0;
+        this.spiralCooldown = this.spiralRestDuration;
       }
-      case "dragon": {
-        // 1 viên theo hình xoắn ốc, góc tăng dần mỗi lần bắn
-        const spd = 5;
-        this.pendingBullets.push(
-          new EnemyBullet(
-            this.x,
-            this.y,
-            Math.cos(this.spiralAngle) * spd,
-            Math.sin(this.spiralAngle) * spd,
-            Math.floor(this.damage * 0.3),
-            { radius: 7, color: "#ff4400", maxLifetime: 280, maxTrail: 8 },
-          ),
-        );
-        this.spiralAngle += Math.PI / 6; // +30° mỗi phát
-        this.spiralCount++;
-
-        if (this.spiralCount >= 12) {
-          this.spiralCount = 0;
-          this.spiralAngle = 0;
-          this.spiralCooldown = this.spiralRestDuration; // 2s ở 60fps
-        }
-        break;
-      }
-      case "golem": {
-        const spd = 3.5;
-        this.pendingBullets.push(
-          new EnemyBullet(
-            this.x,
-            this.y,
-            (dx / dist) * spd,
-            (dy / dist) * spd,
-            Math.floor(this.damage * 0.6),
-            {
-              radius: 10,
-              color: "#44bbff",
-              maxLifetime: 360, // 6s – đủ lâu để truy đuổi
-              maxTrail: 10,
-              target: player, // ⭐ truyền reference player
-              turnRate: 0.025, // ⭐ ~1.4°/frame – xoay chậm, không gắt
-            },
-          ),
-        );
-      }
+      break;
+    }
+    case "golem": {
+      const b = this._acquireBullet(
+        this.x, this.y, (dx/dist)*3.5, (dy/dist)*3.5,
+        Math.floor(this.damage * 0.6),
+        { radius: 12, color: "#44bbff", maxLifetime: 360,
+          maxTrail: 10, target: player, turnRate: 0.025 }
+      );
+      if (b) this.pendingBullets.push(b);
+      break;
     }
   }
+}
 
   getAndClearBullets() {
     const b = this.pendingBullets;

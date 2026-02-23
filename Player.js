@@ -12,7 +12,7 @@ export class Player {
 
     // Stats
     this.baseSpeed = 1;
-    this.baseMaxHp = 25;
+    this.baseMaxHp = 10;
     this.baseDamage = 5;
     this.baseArmor = 0;
 
@@ -49,6 +49,12 @@ export class Player {
 
     this.shootCooldown = 0;
     this.shootCooldownDuration = 35;
+
+    this.hitboxW       = this.width  * 0.45;  // ← chỉnh số này (0.0 → 1.0)
+this.hitboxH       = this.height * 0.55;  // ← chỉnh số này
+this.hitboxOffsetX = 0;                   // ← dịch ngang (px, âm = trái, dương = phải)
+this.hitboxOffsetY = 4;                   // ← dịch dọc  (px, dương = xuống)
+this.debugHitbox   = false;                // ← đổi false khi căn chỉnh xong
   }
 
   // ⭐ GIỮ LẠI method này để tương thích ngược (nếu cần)
@@ -81,7 +87,7 @@ export class Player {
     this.maxHp = this.baseMaxHp + equipmentStats.hp;
     this.armor = this.baseArmor + equipmentStats.armor;
     this.damage = this.baseDamage + equipmentStats.damage;
-    this.speed = this.baseSpeed + equipmentStats.speed;
+    this.speed = Math.min(4, this.baseSpeed + equipmentStats.speed);
 
     const hpRatio = this.hp / oldMaxHp;
     this.hp = Math.min(this.maxHp, Math.floor(this.maxHp * hpRatio));
@@ -208,6 +214,8 @@ export class Player {
     if (!this.isDead) {
       this.drawHealthBar(ctx);
     }
+
+    if (this.debugHitbox) this.drawDebugHitbox(ctx);
   }
 
   drawHealthBar(ctx) {
@@ -285,4 +293,36 @@ export class Player {
   isAlive() {
     return this.hp > 0 && !this.isDead;
   }
+
+  drawDebugHitbox(ctx) {
+  const hcx = this.x + this.hitboxOffsetX;
+  const hcy = this.y + this.hitboxOffsetY;
+  const hw  = this.hitboxW / 2;
+  const hh  = this.hitboxH / 2;
+
+  ctx.save();
+  // Hitbox thực tế (xanh lá)
+  ctx.strokeStyle = "#00ff00";
+  ctx.lineWidth   = 2;
+  ctx.strokeRect(hcx - hw, hcy - hh, this.hitboxW, this.hitboxH);
+  ctx.fillStyle = "#00ff00";
+  ctx.beginPath(); ctx.arc(hcx, hcy, 4, 0, Math.PI * 2); ctx.fill();
+
+  // Bounding box sprite (đỏ đứt nét)
+  ctx.strokeStyle = "#ff0000";
+  ctx.lineWidth   = 1.5;
+  ctx.setLineDash([4, 4]);
+  ctx.strokeRect(this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
+  ctx.setLineDash([]);
+
+  // Label kích thước
+  ctx.fillStyle  = "#ffff00";
+  ctx.font       = "bold 11px monospace";
+  ctx.textAlign  = "center";
+  ctx.fillText(
+    `hb: ${this.hitboxW}×${this.hitboxH}  off:(${this.hitboxOffsetX},${this.hitboxOffsetY})`,
+    hcx, hcy + hh + 14
+  );
+  ctx.restore();
+}
 }

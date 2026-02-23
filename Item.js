@@ -36,7 +36,7 @@ export class Item {
     const multiplier = rarityMultiplier[this.rarity];
 
     // ⭐ Variant multiplier: mỗi variant tăng 50%
-    const variantMultiplier = [1.0, 1.5, 2.0][this.variant] ?? 1.0;
+    const variantMultiplier = [1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75][this.variant] ?? 1.0;
 
     // Tổng multiplier
     const totalMultiplier = multiplier * variantMultiplier;
@@ -53,10 +53,10 @@ export class Item {
         break;
       case "gloves":
         this.stats.hp = Math.floor(5 * totalMultiplier);
-        this.stats.damage = Math.floor(12 * totalMultiplier);
+        this.stats.damage = Math.floor(9 * totalMultiplier);
         break;
       case "boots":
-        this.stats.speed = Math.min(3, Math.floor(1 * totalMultiplier));
+        this.stats.speed = Math.floor(1 * totalMultiplier);
         this.stats.armor = Math.floor(2 * totalMultiplier);
         break;
     }
@@ -64,21 +64,21 @@ export class Item {
 
   getName() {
     const typeNames = {
-      helmet: "Mũ",
-      armor: "Giáp",
-      gloves: "Găng",
-      boots: "Giày",
+      helmet: "HELMET",
+      armor: "ARMOR",
+      gloves: "GOLOVES",
+      boots: "BOOST",
     };
 
     const rarityNames = {
-      common: "Thường",
-      rare: "Hiếm",
-      epic: "Sử Thi",
-      legendary: "Huyền Thoại",
+      common: "COMMON",
+      rare: "RARE",
+      epic: "EPIC",
+      legendary: "LEGENDARY",
     };
 
     // ⭐ Thêm tên variant
-    const variantNames = ["I", "II", "III"]; // hoặc ['A', 'B', 'C']
+    const variantNames = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"]; // hoặc ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
     return `${typeNames[this.type]} ${rarityNames[this.rarity]} ${variantNames[this.variant]}`;
   }

@@ -529,11 +529,11 @@ export class InventoryUI {
     const statRows = [
       [
         { label: `❤️ HP: +${stats.hp}`, c: "#ff6b6b" },
-        { label: `🛡️ Giáp: +${stats.armor}`, c: "#74c0fc" },
+        { label: `🛡️ DEF: +${stats.armor}`, c: "#74c0fc" },
       ],
       [
-        { label: `⚔️ ST: +${stats.damage}`, c: "#ffa94d" },
-        { label: `⚡ Tốc: +${stats.speed}`, c: "#ffe066" },
+        { label: `⚔️ DMG: +${stats.damage}`, c: "#ffa94d" },
+        { label: `⚡ SPD: +${stats.speed}`, c: "#ffe066" },
       ],
     ];
 
@@ -567,14 +567,14 @@ export class InventoryUI {
     ctx.fillStyle = "rgba(255,255,255,0.5)";
     ctx.font = "italic 12px Arial";
     ctx.textAlign = "center";
-    ctx.fillText("Đánh bại quái có tỉ lệ nhận trang bị", passX + passW / 2, passY + PASSIVE_H / 2 + 4);
+    ctx.fillText("Kill monster has chance drop item", passX + passW / 2, passY + PASSIVE_H / 2 + 4);
 
     // --- D. HINT (Luôn ở đáy) ---
     ctx.fillStyle = "rgba(255,255,255,0.3)";
     ctx.font = "15px Arial";
     ctx.textAlign = "center";
     ctx.fillText(
-      "Click để trang bị / tháo đồ",
+      "Click to equip/unequip items",
       blockCenterX,
       ly + contentH - 8,
     );
@@ -591,7 +591,7 @@ export class InventoryUI {
     ctx.font = "bold 14px Arial";
     ctx.textAlign = "center";
     ctx.fillText(
-      "Chọn 3 item cùng loại & độ hiếm để ghép",
+      "SELECT 3 ITEMS SAME TYPE TO MERGE",
       lx + leftW / 2,
       ly + INNER_PAD + 16,
     );
@@ -767,7 +767,7 @@ export class InventoryUI {
     ctx.fillStyle = "rgba(255,255,255,0.35)";
     ctx.font = "15px Arial";
     ctx.fillText(
-      "Click item bên phải để chọn",
+      "CLICK ITEM ON THE RIGHT TO SELECT",
       lx + leftW / 2,
       ly + contentH - INNER_PAD - 4,
     );
@@ -879,7 +879,7 @@ export class InventoryUI {
           ctx.font = "bold 9px Arial";
           ctx.textAlign = "center";
           ctx.fillText(
-            "BÁN",
+            "SELLL",
             sellBtnX + sellBtnW / 2,
             sellBtnY + sellBtnH / 2 + 3,
           );

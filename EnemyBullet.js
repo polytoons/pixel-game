@@ -1,3 +1,11 @@
+export const _bulletImg    = new Image();
+export const BULLET_FRAMES = 5;
+export const BULLET_FW     = 16;
+export const BULLET_FH     = 16;
+_bulletImg.src = "assets/CanonBall.png";
+_bulletImg.onload  = () => console.log("✅ bullet sprite loaded");
+_bulletImg.onerror = () => console.warn("⚠️ bullet sprite NOT found");
+
 export class EnemyBullet {
   constructor(x, y, vx, vy, damage, options = {}) {
     this.x = x;
@@ -11,23 +19,52 @@ export class EnemyBullet {
     this.type = options.type ?? "normal";
     this.maxLifetime = options.maxLifetime ?? 240;
     this.lifetime = 0;
-    this.trail = [];
-    this.maxTrail = options.maxTrail ?? 5;
+    this.trail      = [];
+this.maxTrail   = options.maxTrail ?? 3;
+this._trailHead = 0;
     this.target = options.target ?? null;
     this.turnRate = options.turnRate ?? 0;
 
-    // Wraith: tọa độ đích để tự nổ khi đến nơi
     this.targetX = options.targetX ?? null;
     this.targetY = options.targetY ?? null;
+
+    // ── Wave motion (dao động sin vuông góc hướng bay) ──────────────────
+    // waveAmplitude : biên độ dao động (px/frame) — thử 1.5–3.0
+    // waveFrequency : tần số dao động (rad/frame) — thử 0.08–0.15
+    this.waveAmplitude = options.waveAmplitude ?? 0;
+    this.waveFrequency = options.waveFrequency ?? 0.10;
+    this._waveLast     = 0; // tránh NaN ở frame đầu với đạn wave
+
+    this.spriteFrame     = 0;
+    this.spriteFrameTick = 0;
+    this.spriteFrameDelay = 4;
+
+    if (this.waveAmplitude > 0) {
+      // Véc-tơ vuông góc với hướng bay ban đầu (không đổi theo thời gian)
+      const spd = Math.sqrt(vx * vx + vy * vy) || 1;
+      this._perpX = -vy / spd;   // xoay 90° trái
+      this._perpY =  vx / spd;
+    }
   }
 
   update() {
     if (!this.active) return [];
     this.lifetime++;
 
-    this.trail.push({ x: this.x, y: this.y });
-    if (this.trail.length > this.maxTrail) this.trail.shift();
+    if (++this.spriteFrameTick >= this.spriteFrameDelay) {
+      this.spriteFrameTick = 0;
+      this.spriteFrame = (this.spriteFrame + 1) % BULLET_FRAMES;
+    }
 
+    if (this.trail.length < this.maxTrail) {
+  this.trail.push({ x: this.x, y: this.y });
+} else {
+  this.trail[this._trailHead].x = this.x;
+  this.trail[this._trailHead].y = this.y;
+  this._trailHead = (this._trailHead + 1) % this.maxTrail;
+}
+
+    // Homing
     if (this.target && this.turnRate > 0) {
       const dx = this.target.x - this.x;
       const dy = this.target.y - this.y;
@@ -35,7 +72,7 @@ export class EnemyBullet {
       const currentAngle = Math.atan2(this.vy, this.vx);
 
       let diff = targetAngle - currentAngle;
-      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff >  Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
 
       const rotation = Math.max(-this.turnRate, Math.min(this.turnRate, diff));
@@ -45,8 +82,17 @@ export class EnemyBullet {
       this.vy = Math.sin(newAngle) * speed;
     }
 
-    this.x += this.vx;
-    this.y += this.vy;
+    // ── Di chuyển: tiến thẳng + dao động sin vuông góc ──────────────────
+    if (this.waveAmplitude > 0) {
+  if (this.lifetime % 2 === 0) // cache mỗi 2 frame
+    this._waveLast = Math.sin(this.lifetime * this.waveFrequency) * this.waveAmplitude;
+  const wave = Number.isFinite(this._waveLast) ? this._waveLast : 0;
+  this.x += this.vx + this._perpX * wave;
+  this.y += this.vy + this._perpY * wave;
+} else {
+  this.x += this.vx;   // ← THÊM LẠI
+  this.y += this.vy;   // ← THÊM LẠI
+    }
 
     // Wraith: phát nổ khi đến vị trí mục tiêu
     if (this.type === "wraith" && this.targetX !== null) {
@@ -66,19 +112,17 @@ export class EnemyBullet {
     return [];
   }
 
-  // Phát nổ → 8 viên đạn xung quanh
   explode() {
     const bullets = [];
     for (let i = 0; i < 8; i++) {
       const a = ((Math.PI * 2) / 8) * i;
       bullets.push(
         new EnemyBullet(
-          this.x,
-          this.y,
+          this.x, this.y,
           Math.cos(a) * 4.5,
-          Math.sin(a) * 4.5, // ⭐ tốc độ 2.5 → 4.5
+          Math.sin(a) * 4.5,
           Math.floor(this.damage * 0.5),
-          { radius: 5, color: "#cc44ff", maxLifetime: 150, maxTrail: 5 }, // ⭐ lifetime 70 → 150
+          { radius: 8, color: "#cc44ff", maxLifetime: 150, maxTrail: 5 },
         ),
       );
     }
@@ -93,52 +137,48 @@ export class EnemyBullet {
   }
 
   isOffScreen(w, h) {
-    return (
-      this.x < -200 || this.x > w + 200 || this.y < -200 || this.y > h + 200
-    );
+    return this.x < -200 || this.x > w + 200 || this.y < -200 || this.y > h + 200;
   }
 
   draw(ctx) {
     if (!this.active) return;
     ctx.save();
 
-    // Trail
-    for (let i = 0; i < this.trail.length; i++) {
-      ctx.globalAlpha = (i / this.trail.length) * 0.3;
-      ctx.fillStyle = this.color;
-      ctx.beginPath();
-      ctx.arc(
-        this.trail[i].x,
-        this.trail[i].y,
-        this.radius * 0.5,
-        0,
-        Math.PI * 2,
-      );
-      ctx.fill();
-    }
+  const tLen = this.trail.length;
+for (let j = 0; j < tLen; j++) {
+  const i     = (this._trailHead + j) % tLen;
+  const alpha = (j / tLen) * 0.25;
+  if (alpha < 0.06) continue;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle   = this.color;
+  ctx.beginPath();
+  ctx.arc(this.trail[i].x, this.trail[i].y, this.radius * 0.4, 0, Math.PI * 2);
+  ctx.fill();
+}
     ctx.globalAlpha = 1;
 
-    // Glow + viên đạn
-    ctx.shadowColor = this.color;
-    ctx.shadowBlur = 14;
-    ctx.fillStyle = this.color;
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Viền ngoài đặc trưng của wraith
-    if (this.type === "wraith") {
-      ctx.strokeStyle = "rgba(200,80,255,0.6)";
-      ctx.lineWidth = 2.5;
+    if (_bulletImg.complete && _bulletImg.naturalWidth) {
+      const scale = (this.radius * 2) / BULLET_FW;
+      const dw    = BULLET_FW * scale;
+      const dh    = BULLET_FH * scale;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(
+        _bulletImg,
+        this.spriteFrame * BULLET_FW, 0, BULLET_FW, BULLET_FH,
+        this.x - dw / 2, this.y - dh / 2, dw, dh,
+      );
+    } else {
+      // Fallback arc
+      ctx.fillStyle = this.color;
       ctx.beginPath();
-      ctx.arc(this.x, this.y, this.radius + 6, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fillStyle = "#ffffff";
-      ctx.shadowBlur = 0;
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
       ctx.beginPath();
-      ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+      ctx.arc(this.x, this.y, this.radius * 0.35, 0, Math.PI * 2);
       ctx.fill();
     }
+    // ← viền tím wraith đã xoá hoàn toàn
 
     ctx.restore();
   }

@@ -114,7 +114,11 @@ export class Game {
   }
 
   async startGame(levelId) {
-    const levelConfig = this.lobbyUI.getSelectedLevel();
+  const levelConfig = this.lobbyUI.getSelectedLevel(levelId);  // truyền id trực tiếp
+  if (!levelConfig) {
+    console.error("❌ Không tìm thấy level config cho id:", levelId);
+    return;
+  }
 
     // Load map nếu level có map
     if (levelConfig.hasMap) {
@@ -143,6 +147,15 @@ export class Game {
       this.player.x = spawnPos.x;
       this.player.y = spawnPos.y;
 
+      const isBossLevel = levelConfig.bossWaves?.includes(1) ?? false;
+if (isBossLevel) {
+  this.player.x = 160;
+  this.player.y = 160;
+} else {
+  this.player.x = spawnPos.x;
+  this.player.y = spawnPos.y;
+}
+
       this.waveManager = new WaveManager(
         this.currentMap.getMapWidth(),
         this.currentMap.getMapHeight(),
@@ -150,6 +163,7 @@ export class Game {
         levelConfig,
         this.currentMap,
       );
+      this.waveManager.soundManager = this.soundManager;
     } else {
       this.currentMap = null;
       this.camera = null;
@@ -163,13 +177,17 @@ export class Game {
         levelConfig,
         null,
       );
+      this.waveManager.soundManager = this.soundManager;
     }
-
+    
     // ⭐ Reset player state đầy đủ
     this.player.reset();
     this.bullets = [];
     this.gameOverButtonClicked = false;
-
+    
+    const isBossLevel = levelConfig.bossWaves?.includes(1) ?? false;
+    this.soundManager.playBgm(isBossLevel ? "boss" : "normal");
+    
     this.gameState.setState("playing");
     this.waveManager.startNextWave(this.player.x, this.player.y);
   }
@@ -177,7 +195,8 @@ export class Game {
   returnToLobby() {
     // ⭐ Bật flag chuyển scene
     this.isTransitioning = true;
-
+    this.soundManager.stopBgm();
+    
     // ⭐ Reset game state
     this.gameState.setState("lobby");
     this.waveManager = null;
@@ -264,18 +283,12 @@ export class Game {
     );
 
     const killedCount = this.waveManager.update(
-      this.player.x,
-      this.player.y,
-      this.soundManager,
-      this.player,
-    );
-
-    if (killedCount > 0) {
-      const goldEarned = this.waveManager.getTotalGoldFromKills();
-      if (goldEarned > 0) {
-        this.currency.add(goldEarned);
-      }
-    }
+  this.player.x, this.player.y, this.soundManager, this.player
+);
+const goldEarned = this.waveManager.getTotalGoldFromKills();
+if (goldEarned > 0) {
+  this.currency.add(goldEarned);
+}
 
     const collisionResult = this.waveManager.checkCollisions(
       this.bullets,
@@ -324,7 +337,7 @@ export class Game {
 
     // Draw world objects
     if (this.waveManager) {
-      this.waveManager.draw(this.ctx);
+      this.waveManager.draw(this.ctx, this.camera);
     }
 
     this.bullets.forEach((bullet) => bullet.draw(this.ctx));
@@ -334,6 +347,7 @@ export class Game {
 
     // Draw UI
     this.drawUI();
+    if (this.waveManager) this.waveManager.drawBossHP(this.ctx, this.canvas.width);
 
     if (this.gameState.getState() === "gameover") {
       this.drawGameOver();
